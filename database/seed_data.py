@@ -19,7 +19,7 @@ fake = Faker()
 DB_CONFIG = {
     'dbname': 'gearguard_cmms',
     'user': 'postgres',  # Change this
-    'password': 'your_password',  # Change this
+    'password': '2005',  # Change this
     'host': 'localhost',
     'port': 5432
 }
@@ -40,7 +40,7 @@ def generate_users(conn, count=100):
     
     users = []
     for i in range(count):
-        role_name = random.choice(['Administrator', 'Manager', 'Technician', 'Employee', 'Viewer'])
+        role_name = random.choice(['Administrator', 'Team_Leader', 'Technician', 'Employee', 'Viewer'])
         users.append((
             str(uuid.uuid4()),
             fake.unique.email(),
@@ -98,13 +98,15 @@ def generate_teams(conn, users, count=15):
             datetime.now()
         ))
     
-    cursor.executemany("""
-        INSERT INTO teams (name, description, team_lead_id, specialization, is_active, created_at, updated_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """, teams)
+    team_ids = []
+    for team in teams:
+        cursor.execute("""
+            INSERT INTO teams (name, description, team_lead_id, specialization, is_active, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, team)
+        team_ids.append(cursor.fetchone()[0])
     
-    team_ids = [row[0] for row in cursor.fetchall()]
     conn.commit()
     
     # Assign team members
@@ -167,26 +169,25 @@ def generate_equipment_categories(conn, team_ids, count=25):
     
     colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899']
     
-    cat_data = []
-    for name, desc, parent in categories[:count]:
-        cat_data.append((
-            name,
-            desc,
-            parent,
-            random.choice(team_ids),
-            random.choice(colors),
-            None,
-            datetime.now()
-        ))
+    # Insert categories and map parent references correctly
+    category_ids = []
+    id_map = {}  # Maps the original parent index to actual database ID
     
-    cursor.executemany("""
-        INSERT INTO equipment_categories (name, description, parent_id, responsible_team_id, 
-                                         color_code, icon, created_at)
-        VALUES (%s, %s, %s, %s, %s, %s, %s)
-        RETURNING id
-    """, cat_data)
+    for idx, (name, desc, parent_idx) in enumerate(categories[:count]):
+        # Convert parent index to actual database ID
+        parent_id = id_map.get(parent_idx) if parent_idx else None
+        
+        cursor.execute("""
+            INSERT INTO equipment_categories (name, description, parent_id, responsible_team_id, 
+                                             color_code, icon, created_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
+        """, (name, desc, parent_id, random.choice(team_ids), random.choice(colors), None, datetime.now()))
+        
+        new_id = cursor.fetchone()[0]
+        category_ids.append(new_id)
+        id_map[idx + 1] = new_id  # Store mapping (1-indexed to match parent references)
     
-    category_ids = [row[0] for row in cursor.fetchall()]
     conn.commit()
     cursor.close()
     print(f"✓ Created {count} equipment categories")

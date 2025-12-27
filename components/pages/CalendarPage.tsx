@@ -1,11 +1,12 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { ChevronLeft, ChevronRight, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Calendar, Clock } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { apiClient } from '@/lib/api'
 
 const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
 const MONTHS = [
@@ -23,44 +24,36 @@ const MONTHS = [
   'December',
 ]
 
-const events = [
-  {
-    id: 1,
-    title: 'CNC Machine Preventive Check',
-    date: '2025-12-15',
-    time: '10:00',
-    type: 'preventive',
-    technician: 'Marc Demo',
-  },
-  {
-    id: 2,
-    title: 'HVAC System Inspection',
-    date: '2025-12-18',
-    time: '14:00',
-    type: 'preventive',
-    technician: 'Aka Foster',
-  },
-  {
-    id: 3,
-    title: 'Printer Repair',
-    date: '2025-12-20',
-    time: '09:00',
-    type: 'corrective',
-    technician: 'Mitchell Admin',
-  },
-  {
-    id: 4,
-    title: 'Monthly Server Maintenance',
-    date: '2025-12-28',
-    time: '16:00',
-    type: 'preventive',
-    technician: 'Marc Demo',
-  },
-]
+interface MaintenanceEvent {
+  id: string
+  subject: string
+  equipment_name?: string
+  scheduled_date?: string
+  stage: string
+  priority: string
+}
 
 export default function CalendarPage() {
-  const [currentDate, setCurrentDate] = useState(new Date(2025, 11, 1)) // December 2025
-  const [selectedDate, setSelectedDate] = useState(new Date(2025, 11, 18))
+  const [currentDate, setCurrentDate] = useState(new Date())
+  const [selectedDate, setSelectedDate] = useState(new Date())
+  const [events, setEvents] = useState<MaintenanceEvent[]>([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    fetchEvents()
+  }, [])
+
+  const fetchEvents = async () => {
+    try {
+      setLoading(true)
+      const data = await apiClient.getMaintenanceRequests()
+      setEvents(data)
+    } catch (err) {
+      console.error('Failed to load events:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const year = currentDate.getFullYear()
   const month = currentDate.getMonth()
@@ -101,12 +94,19 @@ export default function CalendarPage() {
   }
 
   const getEventsForDate = (date: Date) => {
-    const dateStr = date.toISOString().split('T')[0]
-    return events.filter((event) => event.date === dateStr)
+    return events.filter(event => {
+      if (!event.scheduled_date) return false
+      const eventDate = new Date(event.scheduled_date)
+      return (
+        eventDate.getDate() === date.getDate() &&
+        eventDate.getMonth() === date.getMonth() &&
+        eventDate.getFullYear() === date.getFullYear()
+      )
+    })
   }
 
   const isToday = (date: Date) => {
-    const today = new Date(2025, 11, 18)
+    const today = new Date()
     return (
       date.getDate() === today.getDate() &&
       date.getMonth() === today.getMonth() &&
@@ -122,6 +122,19 @@ export default function CalendarPage() {
     )
   }
 
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case '1':
+        return 'bg-red-500'
+      case '2':
+        return 'bg-orange-500'
+      case '3':
+        return 'bg-yellow-500'
+      default:
+        return 'bg-blue-500'
+    }
+  }
+
   const selectedDateEvents = getEventsForDate(selectedDate)
 
   return (
@@ -134,9 +147,9 @@ export default function CalendarPage() {
             Schedule and track preventive maintenance
           </p>
         </div>
-        <Button className="gap-2 bg-blue-600 hover:bg-blue-700">
-          <Plus className="h-4 w-4" />
-          Schedule Maintenance
+        <Button className="gap-2 bg-blue-600 hover:bg-blue-700" onClick={fetchEvents} disabled={loading}>
+          <Calendar className="h-4 w-4" />
+          {loading ? 'Loading...' : 'Refresh'}
         </Button>
       </div>
 
@@ -160,7 +173,7 @@ export default function CalendarPage() {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setCurrentDate(new Date(2025, 11, 1))}
+                  onClick={() => setCurrentDate(new Date())}
                 >
                   Today
                 </Button>
@@ -225,13 +238,11 @@ export default function CalendarPage() {
                           <div
                             key={event.id}
                             className={cn(
-                              'truncate rounded px-1 py-0.5 text-[10px] font-medium',
-                              event.type === 'preventive'
-                                ? 'bg-blue-500/20 text-blue-400'
-                                : 'bg-red-500/20 text-red-400'
+                              'truncate rounded px-1 py-0.5 text-[10px] font-medium text-white',
+                              getPriorityColor(event.priority)
                             )}
                           >
-                            {event.time}
+                            {event.subject}
                           </div>
                         ))}
                         {dayEvents.length > 2 && (
@@ -273,24 +284,20 @@ export default function CalendarPage() {
                       key={event.id}
                       className={cn(
                         'rounded-lg border-l-4 bg-card p-3 shadow-sm',
-                        event.type === 'preventive'
-                          ? 'border-blue-500'
-                          : 'border-red-500'
+                        getPriorityColor(event.priority).replace('bg-', 'border-')
                       )}
                     >
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <h4 className="font-medium">{event.title}</h4>
+                          <h4 className="font-medium">{event.subject}</h4>
                           <p className="text-xs text-muted-foreground">
-                            {event.time} • {event.technician}
+                            {event.equipment_name || 'No equipment'}
                           </p>
                         </div>
                         <Badge
-                          variant={
-                            event.type === 'preventive' ? 'info' : 'warning'
-                          }
+                          variant={event.priority === '1' ? 'destructive' : 'secondary'}
                         >
-                          {event.type}
+                          P{event.priority}
                         </Badge>
                       </div>
                     </div>

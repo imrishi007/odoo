@@ -1,10 +1,10 @@
 import DashboardLayout from '@/components/DashboardLayout'
-import MaintenanceRequestForm from '@/components/pages/MaintenanceRequestForm'
+import MaintenancePage from '@/components/pages/MaintenancePage'
 
-export default function MaintenancePage() {
+export default function Maintenance() {
   return (
     <DashboardLayout>
-      <MaintenanceRequestForm />
+      <MaintenancePage />
     </DashboardLayout>
   )
 }

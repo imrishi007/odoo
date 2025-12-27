@@ -1,104 +1,624 @@
-# Flask Developer Handoff Guide
+# FastAPI Developer Handoff Guide - GearGuard CMMS
 
-## Welcome, Flask Developer! 👋
+## Welcome, FastAPI Developer! 👋
 
-Your teammate has created a **fully populated PostgreSQL database** with 5000+ records. This guide shows you how to import it and start building the Flask backend.
+Your teammate has created a **fully populated PostgreSQL database** with **5,400+ records**. This guide shows you how to retrieve the database, restore it, and start building the FastAPI backend.
 
 ---
 
-## What You're Getting
+## 📦 What You're Getting
 
 ### Database Export File
-- **File**: `gearguard_database.tar.gz` (or `gearguard_cmms_dump.backup`)
-- **Size**: ~2-10 MB
-- **Contains**: Complete schema + 5000+ sample records
+- **File**: `gearguard_cmms.backup` (shared via Google Drive/Dropbox)
+- **Size**: ~5-10 MB
+- **Format**: PostgreSQL Custom Format (binary)
+- **Contains**: Complete schema + 5,400+ realistic records
 
 ### Database Contents
-- 100 users (admins, managers, technicians, employees)
-- 15 teams with member assignments
-- 25 equipment categories
-- 2,000 equipment items
-- 3,000 maintenance requests
-- 200 scheduled maintenance tasks
+✅ **100 users** across 5 roles:
+   - Administrator (full access)
+   - Team_Leader (manage teams, assign work)
+   - Technician (work on requests)
+   - Employee (create requests)
+   - Viewer (read-only)
 
-### Default Credentials
-- **All users password**: `password123` (bcrypt hashed)
-- **Admin users**: Check database after import (role_id = 1)
+✅ **15 teams** with 78 member assignments
+✅ **25 equipment categories** (hierarchical structure)
+✅ **2,000 equipment items** (various statuses and health metrics)
+✅ **3,000 maintenance requests** (across all workflow stages)
+✅ **200 scheduled maintenance** records
+
+### Test Credentials
+- **All user passwords**: `password123` (bcrypt hashed: `$2b$12$LQv3c1yqBWVHxkd0LHAkCOYz6TtxMQJqhN8/LewY5LkBRm.Rq4Kuu`)
+- **Find admin users**: Query `users` table where `role_id = 1`
+- **Database name**: `gearguard_cmms`
 
 ---
 
-## Step 1: Import the Database
+## 🔧 Step 1: Retrieve & Import the Database
 
-### Option A: Import from Backup File
+### Download the Backup File
+1. Get the shared link from your teammate
+2. Download `gearguard_cmms.backup` to your computer
 
+### Import Using pgAdmin (Windows/Mac/Linux)
+1. **Install PostgreSQL + pgAdmin** (if not already installed)
+2. Open **pgAdmin 4**
+3. **Create Database:**
+   - Right-click "Databases" → "Create" → "Database..."
+   - Name: `gearguard_cmms`
+   - Click "Save"
+4. **Restore Data:**
+   - Right-click `gearguard_cmms` → "Restore..."
+   - **Filename:** Browse and select `gearguard_cmms.backup`
+   - **Format:** Custom or tar
+   - Click "Restore"
+   - Wait for completion ✅
+
+### Import Using Command Line
+
+**Linux/Mac:**
 ```bash
-# Extract the archive
-tar -xzf gearguard_database.tar.gz
-
 # Create database
 createdb gearguard_cmms
 
 # Restore from backup
-pg_restore -U postgres -d gearguard_cmms -v gearguard_cmms_dump.backup
-
-# Or if you have .sql file:
-psql -U postgres -d gearguard_cmms -f gearguard_cmms_dump.sql
+pg_restore -U postgres -d gearguard_cmms -v gearguard_cmms.backup
 ```
 
-### Option B: Remote Connection
+**Windows (PowerShell):**
+```powershell
+# Navigate to PostgreSQL bin
+cd "C:\Program Files\PostgreSQL\18\bin"
 
-If your teammate gave you remote access:
+# Create database
+.\createdb -U postgres gearguard_cmms
 
-```python
-# In your Flask app config
-SQLALCHEMY_DATABASE_URI = 'postgresql://gearguard_user:password@teammate_ip:5432/gearguard_cmms'
+# Restore from backup
+.\pg_restore -U postgres -d gearguard_cmms -v "C:\path\to\gearguard_cmms.backup"
 ```
+
+### Verify Import
+```sql
+-- Run in pgAdmin Query Tool or psql
+SELECT 
+    'users' as table_name, COUNT(*) as count FROM users
+UNION ALL
+SELECT 'equipment', COUNT(*) FROM equipment
+UNION ALL
+SELECT 'maintenance_requests', COUNT(*) FROM maintenance_requests
+UNION ALL
+SELECT 'teams', COUNT(*) FROM teams;
+
+-- Should show: users(100), equipment(2000), maintenance_requests(3000), teams(15)
+```
+
 
 ---
 
-## Step 2: Set Up Flask Project
+## 🚀 Step 2: Set Up FastAPI Project
 
-### Project Structure
+### Recommended Project Structure
 
 ```
-flask-backend/
+fastapi-backend/
 ├── app/
-│   ├── __init__.py          # Flask app factory
-│   ├── models.py            # SQLAlchemy models
-│   ├── config.py            # Configuration
-│   ├── routes/
+│   ├── __init__.py
+│   ├── main.py              # FastAPI app instance
+│   ├── config.py            # Configuration & environment
+│   ├── database.py          # Database connection
+│   ├── models/              # SQLAlchemy ORM models
 │   │   ├── __init__.py
-│   │   ├── auth.py          # Authentication endpoints
-│   │   ├── equipment.py     # Equipment CRUD
-│   │   ├── requests.py      # Maintenance requests
-│   │   ├── dashboard.py     # Dashboard metrics
-│   │   └── calendar.py      # Calendar/scheduling
+│   │   ├── user.py
+│   │   ├── team.py
+│   │   ├── equipment.py
+│   │   ├── maintenance.py
+│   │   └── schedule.py
+│   ├── schemas/             # Pydantic schemas (request/response)
+│   │   ├── __init__.py
+│   │   ├── user.py
+│   │   ├── auth.py
+│   │   ├── equipment.py
+│   │   ├── maintenance.py
+│   │   └── dashboard.py
+│   ├── routers/             # API endpoints
+│   │   ├── __init__.py
+│   │   ├── auth.py          # POST /auth/login, /auth/register
+│   │   ├── users.py         # GET /users, /users/{id}
+│   │   ├── equipment.py     # CRUD /equipment
+│   │   ├── maintenance.py   # CRUD /maintenance-requests
+│   │   ├── teams.py         # GET /teams, /teams/{id}/members
+│   │   ├── dashboard.py     # GET /dashboard/stats
+│   │   └── calendar.py      # GET /calendar/events
+│   ├── dependencies.py      # Auth dependencies (get_current_user)
 │   └── utils/
 │       ├── __init__.py
-│       ├── decorators.py    # Auth decorators
+│       ├── auth.py          # Password hashing, JWT tokens
 │       └── helpers.py       # Helper functions
-├── migrations/              # Alembic migrations (optional)
-├── tests/                   # Unit tests
+├── alembic/                 # Database migrations (optional)
+├── tests/                   # Unit/integration tests
 ├── .env                     # Environment variables
 ├── requirements.txt
-└── run.py                   # Application entry point
+└── README.md
 ```
 
 ### Install Dependencies
 
 Create `requirements.txt`:
-
 ```txt
-Flask==3.0.0
-Flask-SQLAlchemy==3.1.1
-Flask-Migrate==4.0.5
-Flask-CORS==4.0.0
-Flask-JWT-Extended==4.6.0
-Flask-Bcrypt==1.0.1
+fastapi==0.109.0
+uvicorn[standard]==0.27.0
+sqlalchemy==2.0.25
 psycopg2-binary==2.9.9
+pydantic==2.5.3
+pydantic-settings==2.1.0
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.6
 python-dotenv==1.0.0
-marshmallow==3.20.1
 ```
+
+Install:
+```bash
+pip install -r requirements.txt
+```
+
+---
+
+## 💾 Step 3: Database Connection
+
+### Create `.env` file
+```env
+DATABASE_URL=postgresql://postgres:your_password@localhost:5432/gearguard_cmms
+SECRET_KEY=your-secret-key-for-jwt-tokens-change-this
+ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=30
+```
+
+### `app/database.py`
+```python
+from sqlalchemy import create_engine
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+from .config import settings
+
+engine = create_engine(settings.DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+```
+
+### `app/config.py`
+```python
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    DATABASE_URL: str
+    SECRET_KEY: str
+    ALGORITHM: str = "HS256"
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
+
+    class Config:
+        env_file = ".env"
+
+settings = Settings()
+```
+
+---
+
+## 📋 Step 4: Your Tasks - What to Build
+
+### 🔐 1. Authentication System
+**Priority: HIGH**
+
+#### Endpoints to Create:
+```python
+POST   /api/auth/login          # User login (email + password)
+POST   /api/auth/register       # New user registration
+POST   /api/auth/refresh        # Refresh JWT token
+GET    /api/auth/me             # Get current user info
+POST   /api/auth/logout         # Logout (optional, token blacklist)
+```
+
+#### Key Features:
+- ✅ Verify password against bcrypt hash in database
+- ✅ Generate JWT tokens with user ID and role
+- ✅ Implement role-based access control (RBAC)
+- ✅ Create `get_current_user` dependency for protected routes
+
+**Sample Code:**
+```python
+# app/routers/auth.py
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from ..database import get_db
+from ..schemas.auth import LoginRequest, TokenResponse
+from ..utils.auth import verify_password, create_access_token
+
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
+
+@router.post("/login", response_model=TokenResponse)
+def login(credentials: LoginRequest, db: Session = Depends(get_db)):
+    # Query user by email
+    user = db.query(User).filter(User.email == credentials.email).first()
+    
+    if not user or not verify_password(credentials.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    # Generate token
+    access_token = create_access_token(data={"sub": str(user.id), "role": user.role_id})
+    return {"access_token": access_token, "token_type": "bearer"}
+```
+
+---
+
+### 📊 2. Dashboard API
+**Priority: HIGH**
+
+#### Endpoints:
+```python
+GET    /api/dashboard/stats          # Overall statistics
+GET    /api/dashboard/recent         # Recent activities
+GET    /api/dashboard/equipment      # Equipment health overview
+GET    /api/dashboard/requests       # Request status breakdown
+```
+
+#### Data to Return:
+```python
+{
+    "total_equipment": 2000,
+    "active_requests": 450,
+    "pending_requests": 180,
+    "completed_today": 12,
+    "critical_equipment": 15,
+    "equipment_by_health": {
+        "excellent": 800,
+        "good": 700,
+        "fair": 350,
+        "poor": 100,
+        "critical": 50
+    },
+    "requests_by_stage": {
+        "draft": 50,
+        "submitted": 100,
+        "in_progress": 200,
+        "completed": 2650
+    }
+}
+```
+
+---
+
+### 🔧 3. Equipment Management API
+**Priority: HIGH**
+
+#### Endpoints:
+```python
+GET    /api/equipment                    # List all (with pagination, filters)
+GET    /api/equipment/{id}               # Get single equipment
+POST   /api/equipment                    # Create new equipment
+PUT    /api/equipment/{id}               # Update equipment
+DELETE /api/equipment/{id}               # Delete equipment
+GET    /api/equipment/{id}/history       # Maintenance history
+GET    /api/equipment/categories         # List categories
+```
+
+#### Query Parameters:
+- `?page=1&limit=20` - Pagination
+- `?status=active` - Filter by status
+- `?health_status=critical` - Filter by health
+- `?category_id=5` - Filter by category
+- `?search=pump` - Search by name/serial
+
+---
+
+### 🛠️ 4. Maintenance Requests API
+**Priority: HIGH**
+
+#### Endpoints:
+```python
+GET    /api/requests                     # List all requests
+GET    /api/requests/{id}                # Get request details
+POST   /api/requests                     # Create new request
+PUT    /api/requests/{id}                # Update request
+DELETE /api/requests/{id}                # Delete request
+PATCH  /api/requests/{id}/assign         # Assign to team
+PATCH  /api/requests/{id}/status         # Update status/stage
+GET    /api/requests/{id}/history        # Request history
+POST   /api/requests/{id}/comments       # Add comment
+```
+
+#### Request Stages Workflow:
+```
+Draft → Submitted → Approved → In Progress → Completed → Closed
+```
+
+---
+
+### 👥 5. Teams & Users API
+**Priority: MEDIUM**
+
+#### Endpoints:
+```python
+GET    /api/teams                        # List all teams
+GET    /api/teams/{id}                   # Team details
+GET    /api/teams/{id}/members           # Team members
+POST   /api/teams                        # Create team (admin only)
+
+GET    /api/users                        # List users
+GET    /api/users/{id}                   # User profile
+PUT    /api/users/{id}                   # Update user
+GET    /api/users/{id}/requests          # User's requests
+```
+
+---
+
+### 📅 6. Calendar & Scheduling API
+**Priority: MEDIUM**
+
+#### Endpoints:
+```python
+GET    /api/calendar/events              # All scheduled events
+GET    /api/calendar/month/{year}/{month}  # Month view
+POST   /api/scheduled-maintenance        # Create schedule
+GET    /api/scheduled-maintenance/{id}   # Get schedule details
+PUT    /api/scheduled-maintenance/{id}   # Update schedule
+```
+
+---
+
+### 📈 7. Reporting & Analytics API
+**Priority: LOW**
+
+#### Endpoints:
+```python
+GET    /api/reports/equipment-downtime   # Downtime analysis
+GET    /api/reports/technician-performance  # Performance metrics
+GET    /api/reports/cost-analysis        # Maintenance costs
+GET    /api/analytics/trends             # Historical trends
+```
+
+---
+
+## 🔑 Step 5: Implement Role-Based Access Control
+
+### Roles & Permissions
+
+| Role | ID | Permissions |
+|------|----|-----------|
+| **Administrator** | 1 | Full access - manage everything |
+| **Team_Leader** | 2 | Manage team, assign work, view analytics |
+| **Technician** | 3 | Work on assigned requests, update status |
+| **Employee** | 4 | Create requests for own equipment |
+| **Viewer** | 5 | Read-only access |
+
+### Implementation Example:
+```python
+# app/dependencies.py
+from fastapi import Depends, HTTPException, status
+from jose import JWTError, jwt
+from .config import settings
+
+def require_role(allowed_roles: list):
+    def role_checker(current_user: User = Depends(get_current_user)):
+        if current_user.role_id not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Insufficient permissions")
+        return current_user
+    return role_checker
+
+# Usage in routes:
+@router.delete("/api/equipment/{id}")
+def delete_equipment(
+    id: int,
+    current_user: User = Depends(require_role([1]))  # Admin only
+):
+    # Delete logic
+    pass
+```
+
+---
+
+## 🧪 Step 6: Testing
+
+### Sample Test Data
+The database has realistic test data you can use:
+
+**Find test users:**
+```sql
+SELECT id, email, full_name, role_id 
+FROM users 
+WHERE role_id = 1 
+LIMIT 5;
+```
+
+**Test login:**
+- Use any email from users table
+- Password: `password123`
+
+**Equipment to test:**
+```sql
+SELECT id, name, serial_number, status 
+FROM equipment 
+LIMIT 10;
+```
+
+---
+
+## 📚 Database Schema Reference
+
+### Key Tables
+
+#### `users`
+- `id` (UUID, PK)
+- `email` (VARCHAR, unique)
+- `password_hash` (VARCHAR) - bcrypt
+- `full_name`, `phone`, `avatar_url`
+- `role_id` (FK → roles)
+- `department`, `is_active`
+
+#### `equipment`
+- `id` (SERIAL, PK)
+- `name`, `serial_number`, `model`, `manufacturer`
+- `category_id` (FK → equipment_categories)
+- `status` (active, inactive, maintenance, retired)
+- `health_status` (excellent, good, fair, poor, critical)
+- `assigned_to_user_id`, `responsible_team_id`
+- `purchase_date`, `warranty_expiry`, `last_maintenance_date`
+
+#### `maintenance_requests`
+- `id` (SERIAL, PK)
+- `request_number` (VARCHAR, unique) - e.g., "REQ-2024-001234"
+- `equipment_id` (FK → equipment)
+- `subject`, `description`
+- `stage` (draft, submitted, approved, in_progress, completed, closed, cancelled)
+- `maintenance_type` (corrective, preventive, predictive, breakdown)
+- `priority` (low, medium, high, urgent)
+- `created_by_user_id`, `assigned_team_id`
+- `scheduled_date`, `completed_date`
+
+Full schema: `database/schema.sql`
+
+---
+
+## 🎯 Step 7: API Documentation
+
+FastAPI auto-generates interactive docs:
+- **Swagger UI**: `http://localhost:8000/docs`
+- **ReDoc**: `http://localhost:8000/redoc`
+
+Ensure all endpoints have:
+- Clear descriptions
+- Request/response models (Pydantic schemas)
+- Example values
+
+---
+
+## ⚡ Quick Start Commands
+
+```bash
+# Start development server
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+# Run tests
+pytest
+
+# Check API
+curl http://localhost:8000/api/dashboard/stats
+```
+
+---
+
+## 🤝 Communication with Frontend Team
+
+### API Base URL
+Provide your teammate with:
+```
+http://your-ip-address:8000/api
+```
+
+### CORS Configuration
+```python
+# app/main.py
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+```
+
+### API Response Format (Recommended)
+```python
+# Success
+{
+    "success": true,
+    "data": { ... },
+    "message": "Operation successful"
+}
+
+# Error
+{
+    "success": false,
+    "error": "Error message",
+    "detail": "Detailed error description"
+}
+```
+
+---
+
+## 📝 Checklist
+
+- [ ] Database imported successfully
+- [ ] FastAPI project structure created
+- [ ] Database connection working
+- [ ] Authentication endpoints implemented
+- [ ] JWT token generation working
+- [ ] Role-based access control implemented
+- [ ] Dashboard API endpoints created
+- [ ] Equipment CRUD endpoints working
+- [ ] Maintenance requests CRUD working
+- [ ] Teams & users endpoints done
+- [ ] Calendar/scheduling endpoints created
+- [ ] API documentation complete
+- [ ] CORS configured for frontend
+- [ ] Tested all endpoints with Postman/curl
+- [ ] Shared API base URL with frontend team
+
+---
+
+## 🆘 Need Help?
+
+### Common Issues
+
+**Can't connect to database:**
+```python
+# Check connection string format
+DATABASE_URL=postgresql://username:password@localhost:5432/gearguard_cmms
+```
+
+**Password verification fails:**
+```python
+# Use passlib with bcrypt
+from passlib.context import CryptContext
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+```
+
+**JWT tokens:**
+```python
+# Install: python-jose[cryptography]
+from jose import jwt
+from datetime import datetime, timedelta
+
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=30)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm="HS256")
+```
+
+---
+
+## 🚀 You're All Set!
+
+You have everything you need:
+✅ Fully populated database with 5,400+ records
+✅ Clear API requirements and structure
+✅ Test data ready to use
+✅ Database schema reference
+
+**Build the APIs and ship this CMMS! Good luck with the hackathon! 🏆**
 
 Install:
 
