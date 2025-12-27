@@ -44,117 +44,76 @@ A modern, feature-rich **Computerized Maintenance Management System (CMMS)** bui
 - **Dark Mode**: Default dark theme optimized for enterprise use
 
 ## 📦 Installation
+# GearGuard — Maintenance Management Frontend
+
+This repository contains the frontend prototype for GearGuard, a Computerized Maintenance Management System (CMMS). It provides an interactive user interface for tracking equipment, managing maintenance requests, scheduling preventive work, and monitoring technician load.
+
+This frontend was developed as a hackathon prototype and is optimized for demonstration and rapid iteration.
+
+## Key Features
+
+- Dashboard with operational metrics (critical equipment, technician utilization, open requests)
+- Maintenance request form with stage pipeline and scheduling
+- Equipment inventory and category management
+- Calendar view for preventive maintenance scheduling
+- Reusable component library based on Radix and Tailwind CSS
+
+## Technology Stack
+
+- Next.js 14 (App Router)
+- TypeScript
+- Tailwind CSS
+- Radix UI primitives (shadcn/ui-style components)
+- Lucide icons
+
+## Quick Start (Development)
+
+1. Install dependencies:
 
 ```bash
-# Navigate to project directory
-cd gearguard-cmms
-
-# Install dependencies
+cd /home/Luffyy/Desktop/Projects/gearguard-cmms
 npm install
+```
 
-# Run development server
+2. Start the development server:
+
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) to view the application.
+3. Open the app at: `http://localhost:3000`
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 gearguard-cmms/
-├── app/                    # Next.js 14 App Router
-│   ├── layout.tsx         # Root layout
-│   ├── page.tsx           # Dashboard home
-│   ├── maintenance/       # Maintenance request form
-│   ├── equipment/         # Equipment management
-│   ├── calendar/          # Maintenance calendar
-│   ├── teams/             # Teams management
-│   └── reporting/         # Reports & analytics
-├── components/
-│   ├── ui/                # shadcn/ui components
-│   ├── pages/             # Page components
-│   └── DashboardLayout.tsx # Global layout wrapper
-├── lib/
-│   └── utils.ts           # Utility functions
-└── public/                # Static assets
+├── app/            # Next.js app routes and pages
+├── components/     # Reusable UI components and page components
+├── lib/            # Utility functions
+├── public/         # Static assets
+├── package.json
+└── README.md
 ```
 
-## 🎯 Key Pages
+## Recommended Workflow for Hackathon Collaboration
 
-### Dashboard (`/`)
-- Critical equipment alerts (health < 30%)
-- Technician capacity utilization (85%)
-- Open requests tracker (12 pending, 3 overdue)
-- Recent activity table
-- Quick stats overview
+- Work on a feature branch and push changes to the remote branch (for example: `frontend/gearguard-cmms`).
+- Open a pull request when ready for review or demo.
+- Use small, focused commits and descriptive commit messages.
 
-### Maintenance Request Form (`/maintenance`)
-- Interactive stage pipeline
-- Equipment selector with auto-fill
-- Maintenance type selection (Corrective/Preventive)
-- Team and technician assignment
-- Scheduled date and duration
-- Priority rating (star system)
-- Notes with AI summary generation
-- Step-by-step instructions
+## Next Steps and Integration
 
-### Equipment Management (`/equipment`)
-- Complete equipment inventory
-- Serial number tracking
-- Department and employee assignments
-- Category management
-- Equipment health monitoring
+The frontend is a prototype and can be integrated with a backend service (for example, Odoo or a custom API) to persist equipment and request data. Suggested next steps:
 
-### Calendar View (`/calendar`)
-- Monthly calendar grid
-- Event scheduling
-- Preventive maintenance tracking
-- Selected date details sidebar
-- Upcoming tasks overview
+- Add REST or GraphQL API endpoints for equipment and requests
+- Implement authentication and role-based access control
+- Add persistence for calendar events and notifications
 
-## 🎨 Color Scheme
+## License
 
-- **Background**: `#1a1a1a` (Deep charcoal)
-- **Cards**: `#0f0f0f` with subtle borders
-- **Accents**:
-  - Critical/Red: `rgb(239, 68, 68)`
-  - Info/Blue: `rgb(59, 130, 246)`
-  - Success/Green: `rgb(16, 185, 129)`
-  - Warning/Amber: `rgb(245, 158, 11)`
-  - Purple: `rgb(168, 85, 247)`
-
-## 🚧 Future Enhancements
-
-- [ ] Backend API integration (Odoo/Custom)
-- [ ] Real-time notifications
-- [ ] Advanced reporting & analytics
-- [ ] Mobile app
-- [ ] QR code scanning for equipment
-- [ ] Drag-and-drop Kanban board
-- [ ] File attachments
-- [ ] User authentication
-- [ ] Role-based access control
-- [ ] Email notifications
-
-## 📝 Notes for Hackathon
-
-This is a **frontend-focused prototype** designed to showcase:
-- Modern UX/UI design principles
-- Enterprise-grade component architecture
-- Responsive and accessible design
-- Smart workflows and automation hints
-- Professional dark mode implementation
-
-**Perfect for**: Hackathons, client demos, MVP presentations, or as a foundation for a full-stack CMMS application.
-
-## 🤝 Contributing
-
-This is a hackathon project. Feel free to fork and adapt for your needs!
-
-## 📄 License
-
-MIT License - Feel free to use this in your projects.
+This project is provided under the MIT License.
 
 ---
 
-Built with ❤️ using Next.js, Tailwind CSS, and shadcn/ui
+For questions or to request backend scaffolding, open an issue or contact the project maintainer.
+- **Accents**:
